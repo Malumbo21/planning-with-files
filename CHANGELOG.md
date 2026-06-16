@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.2] - 2026-06-16
+
+A documentation patch. The session-catchup command in the skill body assumed the plugin runtime had set `${CLAUDE_PLUGIN_ROOT}`, so a skill-only install that ran the documented command in a normal shell got an empty variable and a broken path. This release adds a fallback across the affected variants, fixes the same class of bug in the `.hermes` variant, and refreshes the skill description to lead with the current positioning.
+
+### Fixed
+
+- **Session-catchup command works outside the plugin runtime** (PR #186 by @shunfeng8421, closes #185). The documented Restore Context command ran `${CLAUDE_PLUGIN_ROOT}/scripts/session-catchup.py`, but `CLAUDE_PLUGIN_ROOT` is only set when the plugin runtime executes a hook, not in an interactive shell. A skill-only install (via `npx skills add`, or on Codex or Cursor) collapsed the command to an absolute `/scripts/...` path that does not exist. The fix uses `SKILL_DIR="${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/skills/planning-with-files}"`, so plugin users keep the variable and skill-only users fall back to the default install path. Applied to the canonical file, the `.codebuddy` variant (with its own `${CODEBUDDY_PLUGIN_ROOT}`), and the five language variants. The Windows PowerShell block and plugin behavior are unchanged.
+- **`.hermes` variant carried the same unset-variable bug** (maintainer follow-up to #186). `.hermes` used `$HERMES_HOME` in bash and `$env:HERMES_HOME` in PowerShell with no fallback, so its catchup command failed the same way outside the Hermes runtime. Both blocks now fall back to `$HOME/.hermes` and `$env:USERPROFILE\.hermes` while keeping the runtime variable as the priority.
+
+### Changed
+
+- **Skill description refreshed for discoverability.** The eight English SKILL.md files (canonical plus the `.codebuddy`, `.codex`, `.cursor`, `.factory`, `.hermes`, `.mastracode`, `.opencode` adapters) now lead with "persistent file-based planning for AI coding agents" and name context-loss survival explicitly. The `Use when` trigger clause is unchanged, so model invocation behavior is identical. The five translated variants keep their localized descriptions.
+- Version bumped to 3.1.2 across the 17 parity-locked files via `scripts/bump-version.py`. `.continue`, `.gemini`, `.pi`, and `.kiro` lag intentionally per AGENTS.md release scope.
+
+### Verification
+
+- Python suite: 180 passed, 4 skipped, 0 failed, unchanged. The change is documentation prose with no test dependency.
+- Supply-chain review: the changed files are SKILL.md documentation only. No dependency, install hook, bin shim, or new install-path file. PR #186's diff was reviewed line by line before adoption.
+
+### Thanks
+
+- @shunfeng8421 for the session-catchup fallback fix (PR #186), which resolves the #185 report.
+- @xwang118 for surfacing the underlying problem in PR #183 that became #185.
+
 ## [3.1.1] - 2026-06-15
 
 A documentation-only patch. The Codex verification command in `docs/codex.md` checked for a feature-flag name that current Codex no longer prints, so a correctly configured user running the documented check was told to upgrade. This release fixes the command and its follow-up sentence to match the canonical `hooks` flag already documented elsewhere in the same file. No code, hook, script, or test changed; the parity set is bumped to 3.1.1.

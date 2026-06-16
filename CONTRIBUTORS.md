@@ -121,6 +121,11 @@ These amazing people have contributed code, documentation, or significant improv
   - The bare pattern stopped matching once Codex moved its canonical feature key from `codex_hooks` to `hooks` in 0.129.0 (openai/codex#20522); the alias still resolves in `config.toml`, but `codex features list` prints only the canonical `hooks`, so the verify step was telling correctly configured users to upgrade
   - **Impact:** the documented verification command matches on current Codex versions again, and `docs/codex.md` is internally consistent across the six places that reference the feature flag
 
+- **[@shunfeng8421](https://github.com/shunfeng8421)** - [PR #186](https://github.com/OthmanAdi/planning-with-files/pull/186), [Issue #185](https://github.com/OthmanAdi/planning-with-files/issues/185)
+  - Fixed the session-catchup command for skill-only installs: the documented Restore Context command used `${CLAUDE_PLUGIN_ROOT}`, which the plugin runtime sets only inside hook execution, so a user who installed via `npx skills add` or on Codex or Cursor and ran it in a normal shell got an empty variable and a broken `/scripts/...` path
+  - Switched to `SKILL_DIR="${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/skills/planning-with-files}"` across the canonical file, the `.codebuddy` variant, and the five language variants, keeping the plugin path as priority and the Windows PowerShell block unchanged
+  - **Impact:** skill-only installs can run the documented catchup command and get a working path, with no behavior change for plugin users. The same fallback was extended to the `.hermes` variant in the release commit. The underlying problem was surfaced by @xwang118 in PR #183 and tracked in #185
+
 - **[@Skulli485](https://github.com/Skulli485)** - [PR #171](https://github.com/OthmanAdi/planning-with-files/pull/171), [Issue #162](https://github.com/OthmanAdi/planning-with-files/issues/162)
    - Authored the first `CONTRIBUTING.md` at the repo root, covering local setup, project layout, PR submission conventions, authorship and credit policy, language variant contribution rules, and where to ask questions
    - A pre-merge follow-up commit by the maintainer removed a duplicated intro and a broken four-backtick code fence from the original diff
