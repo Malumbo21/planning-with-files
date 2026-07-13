@@ -16,6 +16,7 @@ export interface PlanPaths {
 
 export interface PlanStatus extends PlanPaths {
 	exists: boolean;
+	closed: boolean;
 	totalPhases: number;
 	completePhases: number;
 	inProgressPhases: number;
@@ -43,7 +44,8 @@ function resolveNewestPlanDir(planRoot: string): string | undefined {
 		.map((dir) => {
 			let mtime = 0;
 			try {
-				mtime = statSync(dir).mtimeMs;
+				// Rank by task_plan.md mtime, not the directory: editing a plan's contents does not bump the dir mtime, which let a completed plan lose to a stale sibling (#203).
+				mtime = statSync(join(dir, "task_plan.md")).mtimeMs;
 			} catch {
 				mtime = 0;
 			}
@@ -119,6 +121,7 @@ export function readPlanStatus(cwd: string): PlanStatus {
 		return {
 			...paths,
 			exists: false,
+			closed: false,
 			totalPhases: 0,
 			completePhases: 0,
 			inProgressPhases: 0,
@@ -130,6 +133,7 @@ export function readPlanStatus(cwd: string): PlanStatus {
 	}
 
 	const planContent = safeRead(paths.planPath);
+	const closed = /<!--\s*pwf:\s*closed\s*-->/i.test(planContent);
 	const lines = planContent.split("\n");
 
 	const phaseRegex = /^###\s+Phase\b/i;
@@ -164,6 +168,7 @@ export function readPlanStatus(cwd: string): PlanStatus {
 	return {
 		...paths,
 		exists: true,
+		closed,
 		totalPhases: total,
 		completePhases: complete,
 		inProgressPhases: inProgress,

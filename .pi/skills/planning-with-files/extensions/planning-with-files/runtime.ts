@@ -409,7 +409,7 @@ function registerCommands(pi: ExtensionAPI, state: RuntimeState): void {
 				const status = readPlanStatus(ctx.cwd);
 				if (!status.exists) return;
 
-				if (isAllPhasesComplete(status)) {
+				if (isAllPhasesComplete(status) || status.closed) {
 					const active = state.loopTimersBySession.get(sessionId);
 					if (active) clearInterval(active);
 					state.loopTimersBySession.delete(sessionId);
@@ -607,6 +607,10 @@ export default function planningWithFilesExtension(pi: ExtensionAPI): void {
 
 		const sessionId = getSessionId(ctx);
 		const planKey = getPlanSessionKey(ctx, status);
+		if (status.closed) {
+			state.autoContinueCountBySessionPlan.set(planKey, 0);
+			return;
+		}
 		const mode = deriveEffectiveMode(resolveConfiguredMode(ctx.cwd), ctx);
 
 		if (isAllPhasesComplete(status)) {
@@ -652,6 +656,12 @@ export default function planningWithFilesExtension(pi: ExtensionAPI): void {
 			`[planning-with-files] Task incomplete (${status.completePhases}/${status.totalPhases} phases done). ` +
 			"Update progress.md with what was done, then read task_plan.md and continue remaining phases." +
 			(goal ? ` Goal: ${goal}` : "");
+
+		if (process.env.PWF_DEBUG) {
+			console.error(
+				`[planning-with-files] agent_end nag: cwd=${ctx.cwd} planId=${status.planId ?? "root"} closed=${status.closed} phases=${status.completePhases}/${status.totalPhases}`,
+			);
+		}
 
 		pi.sendUserMessage(continueMessage, { deliverAs: "followUp" });
 	});

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -86,6 +86,10 @@ function completePlan(): string {
 		"**Status:** complete",
 		"",
 	].join("\n");
+}
+
+function closedIncompletePlan(): string {
+	return incompletePlan() + "\n<!-- pwf: closed -->\n";
 }
 
 function attestPlan(cwd: string, content: string): void {
@@ -371,6 +375,41 @@ describe("Pi extension runtime handlers", () => {
 		await emit(pi, "tool_call", { toolName: "write", input: {} }, ctx);
 
 		expect(pi.sendMessage).toHaveBeenCalledTimes(2);
+	});
+
+	it("agent_end sends no follow-up when the plan is closed even if incomplete", async () => {
+		const cwd = makeWorkspace(closedIncompletePlan());
+		const pi = loadExtension();
+		const ctx = createContext(cwd);
+
+		await approvePlan(pi, ctx);
+		await emit(pi, "agent_end", {}, ctx);
+
+		expect(pi.sendUserMessage).not.toHaveBeenCalled();
+	});
+
+	it("resolveNewestPlanDir ranks by task_plan.md file mtime, not directory mtime", async () => {
+		const cwd = makeWorkspace(incompletePlan()); // creates .planning/demo (incomplete)
+		const donePlanDir = join(cwd, ".planning", "done");
+		mkdirSync(donePlanDir, { recursive: true });
+		writeFileSync(join(donePlanDir, "task_plan.md"), completePlan());
+		writeFileSync(join(donePlanDir, "progress.md"), "done\n");
+		const older = new Date(Date.now() - 60_000);
+		const newer = new Date();
+		// done DIR older than demo DIR, but done's task_plan.md file NEWER than demo's
+		utimesSync(donePlanDir, older, older);
+		utimesSync(join(cwd, ".planning", "demo"), newer, newer);
+		utimesSync(join(donePlanDir, "task_plan.md"), newer, newer);
+		utimesSync(join(cwd, ".planning", "demo", "task_plan.md"), older, older);
+
+		const pi = loadExtension();
+		const ctx = createContext(cwd);
+		await emit(pi, "agent_end", {}, ctx);
+
+		expect(ctx.ui.notify).toHaveBeenCalledWith(
+			"[planning-with-files] ALL PHASES COMPLETE (2/2).",
+			"info",
+		);
 	});
 });
 
