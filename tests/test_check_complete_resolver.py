@@ -237,5 +237,26 @@ class TemplateNextStepTests(unittest.TestCase):
                 )
 
 
+
+    def test_init_session_output_contains_next_step(self):
+        """v3.8.1 regression: init-session writes plans from an inline heredoc,
+        not from templates/task_plan.md, so the v3.8.0 Next Step section never
+        reached created plans. Assert the OUTPUT, not the template."""
+        import subprocess
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="pwf-nextstep-") as tmp:
+            script = REPO_ROOT / "skills" / "planning-with-files" / "scripts" / "init-session.sh"
+            result = subprocess.run(
+                ["sh", str(script), "next-step-probe"],
+                cwd=tmp, capture_output=True, text=True, timeout=60,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            created = Path(tmp) / ".planning"
+            plans = list(created.glob("*/task_plan.md"))
+            self.assertEqual(len(plans), 1, f"expected one plan, got {plans}")
+            body = plans[0].read_text(encoding="utf-8")
+            self.assertIn("## Next Step", body)
+            self.assertIn("[The single next action. Update whenever phase status changes.]", body)
+
 if __name__ == "__main__":
     unittest.main()
